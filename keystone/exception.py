@@ -89,12 +89,20 @@ class TenantNotFound(NotFound):
     """Could not find tenant: %(tenant_id)s"""
 
 
+class TenantNotFoundByName(NotFound):
+    """Could not find tenant with name: %(tenant_name)s"""
+
+
 class TokenNotFound(NotFound):
     """Could not find token: %(token_id)s"""
 
 
 class UserNotFound(NotFound):
     """Could not find user: %(user_id)s"""
+
+
+class UserNotFoundByName(NotFound):
+    """Could not find user with name: %(user_name)s"""
 
 
 class Conflict(Error):

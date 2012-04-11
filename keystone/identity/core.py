@@ -244,6 +244,11 @@ class TenantController(wsgi.Application):
     def get_all_tenants(self, context, **kw):
         """Gets a list of all tenants for an admin user."""
         self.assert_admin(context)
+
+        name = context['query_string'].get('name')
+        if name:
+            return self._get_tenant_by_name(context, tenant_name=name)
+
         tenant_refs = self.identity_api.get_tenants(context)
         params = {
             'limit': context['query_string'].get('limit'),
@@ -358,6 +363,13 @@ class TenantController(wsgi.Application):
              'tenants_links': []}
         return o
 
+    def _get_tenant_by_name(self, context, tenant_name):
+        tenant = self.identity_api.get_tenant_by_name(context, tenant_name)
+        if not tenant:
+            raise exception.TenantNotFoundByName(tenant_name=tenant_name)
+
+        return {'tenant': tenant}
+
 
 class UserController(wsgi.Application):
     def __init__(self):
@@ -378,6 +390,11 @@ class UserController(wsgi.Application):
         # NOTE(termie): i can't imagine that this really wants all the data
         #               about every single user in the system...
         self.assert_admin(context)
+
+        name = context['query_string'].get('name')
+        if name:
+            return self._get_user_by_name(context, name)
+
         user_refs = self.identity_api.list_users(context)
         return {'users': user_refs}
 
@@ -426,6 +443,13 @@ class UserController(wsgi.Application):
         tenant_id = user.get('tenantId')
         self.identity_api.add_user_to_tenant(context, tenant_id, user_id)
         return self.update_user(context, user_id, user)
+
+    def _get_user_by_name(self, context, user_name):
+        user_ref = self.identity_api.get_user_by_name(context, user_name)
+        if not user_ref:
+            raise exception.UserNotFoundByName(user_name=user_name)
+
+        return {'user': user_ref}
 
 
 class RoleController(wsgi.Application):
