@@ -98,6 +98,21 @@
 # role_id_attribute = cn
 # role_member_attribute = roleOccupant
 
+[security]
+driver = keystone.contrib.security.backends.sql.Security
+
+[mail_401]
+expiration = 300
+tolerance = 5
+mail_manager = keystone.contrib.security.middleware.EventletMailer
+# host = localhost
+# user = sender@example.com
+# password = pass
+# use_tls = True
+# port = 25
+admin_emails = ['admin1@example.com', 'admin2@example.com']
+from_email = 'keystone@example.com'
+
 [filter:debug]
 paste.filter_factory = keystone.common.wsgi:Debug.factory
 
@@ -119,6 +134,9 @@ paste.filter_factory = keystone.contrib.admin_crud:CrudExtension.factory
 [filter:ec2_extension]
 paste.filter_factory = keystone.contrib.ec2:Ec2Extension.factory
 
+[filter:mail_401]
+paste.filter_factory = keystone.contrib.security.middleware:MailConsecutive401.factory
+
 [app:public_service]
 paste.app_factory = keystone.service:public_app_factory
 
@@ -126,10 +144,10 @@ paste.app_factory = keystone.service:public_app_factory
 paste.app_factory = keystone.service:admin_app_factory
 
 [pipeline:public_api]
-pipeline = token_auth admin_token_auth xml_body json_body debug ec2_extension public_service
+pipeline = token_auth admin_token_auth mail_401 xml_body json_body debug ec2_extension public_service
 
 [pipeline:admin_api]
-pipeline = token_auth admin_token_auth xml_body json_body debug ec2_extension crud_extension admin_service
+pipeline = token_auth admin_token_auth mail_401 xml_body json_body debug ec2_extension crud_extension admin_service
 
 [app:public_version_service]
 paste.app_factory = keystone.service:public_version_app_factory
