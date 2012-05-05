@@ -195,6 +195,10 @@ class Driver(object):
     def delete_role(self, role_id):
         raise exception.NotImplemented()
 
+    def handle_auth_error(self, user_id, password, tenant_id, user_ref=None):
+        LOG.critical("Authentication error for parmas: "
+                     "user=%s password=%s tenant=%s" % (user_id, password, tenant_id))
+
 
 class PublicRouter(wsgi.ComposableRouter):
     def add_routes(self, mapper):
