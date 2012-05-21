@@ -195,6 +195,11 @@ class Driver(object):
     def delete_role(self, role_id):
         raise exception.NotImplemented()
 
+    def handle_auth_error(self, msg, user_id, password, tenant_id):
+        LOG.critical("Authentication error for params: "
+                "user=%s password=%s tenant=%s message=%s"
+                    % (user_id, password, tenant_id, msg))
+
 
 class PublicRouter(wsgi.ComposableRouter):
     def add_routes(self, mapper):

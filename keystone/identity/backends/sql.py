@@ -16,12 +16,25 @@
 
 import copy
 import functools
+import logging
 
+from keystone import config
 from keystone import identity
 from keystone import exception
 from keystone.common import sql
 from keystone.common import utils
 from keystone.common.sql import migration
+
+
+CONF = config.CONF
+config.register_str('auth_error_handler', group='identity', default=None)
+
+try:
+    AUTH_ERROR_HANDLER = utils.import_class(CONF.identity.auth_error_handler)()
+except ImportError:
+    AUTH_ERROR_HANDLER = None
+
+LOG = logging.getLogger(__name__)
 
 
 def _filter_user(user_ref):
@@ -145,11 +158,13 @@ class Identity(sql.Base, identity.Driver):
         user_ref = self._get_user(user_id)
         if (not user_ref
             or not utils.check_password(password, user_ref.get('password'))):
-            raise AssertionError('Invalid user / password')
+            self.handle_auth_error('Invalid user / password', user_id, password,
+                                   tenant_id, user_ref)
 
         tenants = self.get_tenants_for_user(user_id)
         if tenant_id and tenant_id not in tenants:
-            raise AssertionError('Invalid tenant')
+            self.handle_auth_error('Invalid tenant', user_id, password,
+                                   tenant_id, user_ref)
 
         tenant_ref = self.get_tenant(tenant_id)
         if tenant_ref:
@@ -443,3 +458,12 @@ class Identity(sql.Base, identity.Driver):
         role_ref = session.query(Role).filter_by(id=role_id).first()
         with session.begin():
             session.delete(role_ref)
+
+    def handle_auth_error(self, msg, user_id, password, tenant_id, user_ref):
+        super(Identity, self).handle_auth_error(msg, user_id, password,
+                                                tenant_id)
+        if AUTH_ERROR_HANDLER:
+            AUTH_ERROR_HANDLER.handle(user_id, password, tenant_id, self,
+                                      user_ref)
+
+        raise AssertionError(msg)
