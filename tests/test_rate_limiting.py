@@ -35,7 +35,7 @@ class BaseRateLimitingTest(test.TestCase):
     def setUp(self):
         super(BaseRateLimitingTest, self).setUp()
         self.time = 0.0
-        self.stubs.Set(rate_core.LimitsController, "_get_time", self._get_time)
+        self.stubs.Set(rate_core.Limit, "_get_time", self._get_time)
         self.absolute_limits = {}
 
     def _get_time(self):
@@ -72,45 +72,38 @@ class LimitTest(BaseRateLimitingTest):
         self.assertEqual(4, limit.next_request)
         self.assertEqual(4, limit.last_request)
 
-
-class ParseLimitsTest(object):
-    """
-    Tests for the default limits parser in the in-memory
-    `rate_core.Limiter` class.
-    """
-
     def test_invalid(self):
         """Test that parse_limits() handles invalid input correctly."""
-        self.assertRaises(ValueError, rate_core.Limiter.parse_limits,
+        self.assertRaises(ValueError, rate_core.Limit.parse_limits,
                           ';;;;;')
 
     def test_bad_rule(self):
         """Test that parse_limits() handles bad rules correctly."""
-        self.assertRaises(ValueError, rate_core.Limiter.parse_limits,
+        self.assertRaises(ValueError, rate_core.Limit.parse_limits,
                           'GET, *, .*, 20, minute')
 
     def test_missing_arg(self):
         """Test that parse_limits() handles missing args correctly."""
-        self.assertRaises(ValueError, rate_core.Limiter.parse_limits,
+        self.assertRaises(ValueError, rate_core.Limit.parse_limits,
                           '(GET, *, .*, 20)')
 
     def test_bad_value(self):
         """Test that parse_limits() handles bad values correctly."""
-        self.assertRaises(ValueError, rate_core.Limiter.parse_limits,
+        self.assertRaises(ValueError, rate_core.Limit.parse_limits,
                           '(GET, *, .*, foo, minute)')
 
     def test_bad_unit(self):
         """Test that parse_limits() handles bad units correctly."""
-        self.assertRaises(ValueError, rate_core.Limiter.parse_limits,
+        self.assertRaises(ValueError, rate_core.Limit.parse_limits,
                           '(GET, *, .*, 20, lightyears)')
 
     def test_multiple_rules(self):
         """Test that parse_limits() handles multiple rules correctly."""
         try:
-            l = rate_core.Limiter.parse_limits('(get, *, .*, 20, minute);'
-                                            '(PUT, /foo*, /foo.*, 10, hour);'
-                                            '(POST, /bar*, /bar.*, 5, second);'
-                                            '(Say, /derp*, /derp.*, 1, day)')
+            l = rate_core.Limit.parse_limits('(get, *, .*, 20, minute);'
+                                             '(PUT, /foo*, /foo.*, 10, hour);'
+                                             '(POST, /bar*, /bar.*, 5, second);'
+                                             '(Say, /derp*, /derp.*, 1, day)')
         except ValueError, e:
             assert False, str(e)
 
@@ -311,7 +304,7 @@ class LimiterTest(object):
         self.assertEqual(expected, results)
 
 
-class RestfulRateLimit(test_ct.ResftfulTestCase):
+class RestfulRateLimit(test_ct.RestfulTestCase):
     def test_good_request(self):
         """Tests successful request."""
         raise nose.exc.SkipTest('TODO')
