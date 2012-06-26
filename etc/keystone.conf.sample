@@ -151,10 +151,10 @@ paste.filter_factory = keystone.contrib.stats:StatsMiddleware.factory
 paste.filter_factory = keystone.contrib.stats:StatsExtension.factory
 
 [filter:rate_limiting_extension]
-paste.filter_factory = keystone.contrib.rates:RateLimitingExtension.factory
+paste.filter_factory = keystone.contrib.rate:RateLimitingExtension.factory
 
 [filter:rate_limiting_middleware]
-paste.filter_factory = keystone.contrib.rates:RateLimitingMiddleware.factory
+paste.filter_factory = keystone.contrib.rate:RateLimitingMiddleware.factory
 
 [app:public_service]
 paste.app_factory = keystone.service:public_app_factory

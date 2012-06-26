@@ -14,5 +14,5 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from keystone.contrib.rates.core import RateLimitingExtension
-from keystone.contrib.rates.core import RateLimitingMiddleware
+from keystone.contrib.rate.core import RateLimitingExtension
+from keystone.contrib.rate.core import RateLimitingMiddleware

@@ -20,6 +20,18 @@ from keystone.common import wsgi
 
 LOG = logging.getLogger(__name__)
 
+
+# Convenience constants for the limits dictionary passed to Limiter().
+PER_SECOND = 1
+PER_MINUTE = 60
+PER_HOUR = 60 * 60
+PER_DAY = 60 * 60 * 24
+
+
+class Limit(object):
+    pass
+
+
 class RateLimitingExtension(wsgi.ExtensionRouter):
     """Provides rate limiting support and information about current limits
     usage by a given user.
@@ -35,14 +47,14 @@ class RateLimitingExtension(wsgi.ExtensionRouter):
                 conditions=dict(method=['GET']))
 
 
+class LimitsController(wsgi.Application):
+    def get_limits(self, context):
+        return {'limits': []}
+
+
 class RateLimitingMiddleware(wsgi.Middleware):
     def process_response(self, request, response):
         return response
 
     def process_request(self, request):
         pass
-
-
-class LimitsController(wsgi.Application):
-    def get_limits(self, context):
-        return {'limits': []}
