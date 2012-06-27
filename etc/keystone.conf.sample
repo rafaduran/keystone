@@ -117,6 +117,9 @@
 # role_id_attribute = cn
 # role_member_attribute = roleOccupant
 
+[rate_limiting]
+# driver = keystone.contrib.rate.backends.kvs.Limiter
+
 [filter:debug]
 paste.filter_factory = keystone.common.wsgi:Debug.factory
 

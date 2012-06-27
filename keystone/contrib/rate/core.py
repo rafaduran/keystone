@@ -19,7 +19,14 @@ import math
 import re
 import time
 
+from keystone.common import manager
 from keystone.common import wsgi
+from keystone import config
+from keystone import exception
+
+config.register_str('driver', group='rate_limiting',
+                    default='keystone.contrib.rate.backends.kvs.Limiter')
+CONF = config.CONF
 
 LOG = logging.getLogger(__name__)
 _ = lambda x: x
@@ -204,10 +211,34 @@ class RateLimitingExtension(wsgi.ExtensionRouter):
                 conditions=dict(method=['GET']))
 
 
+class Manager(manager.Manager):
+    """Default pivot point for the Identity backend.
+
+    See :mod:`keystone.common.manager.Manager` for more details on how this
+    dynamically calls the backend.
+
+    """
+
+    def __init__(self):
+        super(Manager, self).__init__(CONF.rate_limiting.driver)
+
+
+class Driver(object):
+    """Interface description for an rate limiting driver."""
+
+    def get_limits(self, user_id):
+        """Get current limits for a given user."""
+        raise exception.NotImplemented()
+
+
 class LimitsController(wsgi.Application):
 
+    def __init__(self):
+        self.rate_api = Manager()
+        super(LimitsController, self).__init__()
+
     def get_limits(self, context):
-        return {'limits': []}
+        return self.rate_api.get_limits(context)
 
 
 class RateLimitingMiddleware(wsgi.Middleware):
