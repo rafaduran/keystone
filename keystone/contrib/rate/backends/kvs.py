@@ -18,6 +18,8 @@ from keystone.common import kvs
 from keystone.contrib.rate import core
 
 class Limiter(kvs.Base, core.Driver):
+    def __init__(self, *args, **kwargs):
+        pass
 
     def get_limits(self, user_id=None):
         return {'limits': []}

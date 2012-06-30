@@ -196,6 +196,7 @@ class Limit(object):
 
         return result
 
+
 class RateLimitingExtension(wsgi.ExtensionRouter):
     """Provides rate limiting support and information about current limits
     usage by a given user.
@@ -230,18 +231,28 @@ class Driver(object):
         """Get current limits for a given user."""
         raise exception.NotImplemented()
 
+    def check_for_delay(self, verb, url, user_id=None):
+        """
+        Check the given verb/url/user_id triplet for limit.
+        """
+        raise exception.NotImplemented()
+
 
 class LimitsController(wsgi.Application):
 
     def __init__(self):
-        self.rate_api = Manager()
+        self.limiter = Manager()
         super(LimitsController, self).__init__()
 
     def get_limits(self, context):
-        return self.rate_api.get_limits(context)
+        return self.limiter.get_limits(context)
 
 
 class RateLimitingMiddleware(wsgi.Middleware):
+    def __init__(self, app):
+        super(RateLimitingMiddleware, self).__init__(app)
+        self.limiter = Manager()
+
     def process_response(self, request, response):
         return response
 

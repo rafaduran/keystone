@@ -16,6 +16,7 @@
 
 import nose.exc
 
+from keystone.contrib.rate.backends import kvs
 import keystone.contrib.rate.core as rate_core
 from keystone import test
 
@@ -150,31 +151,25 @@ class LimitsControllerTest(object):
         raise nose.exc.SkipTest('TODO')
 
 
-class LimiterTest(object):
+class LimiterTestSuite(object):
     """
-    Tests for the in-memory `rate_core.Limiter` class.
+    Test suite base for Limiter classes.
     """
 
-    def setUp(self):
-        """Run before each test."""
-        super(LimiterTest, self).setUp()
-        userlimits = {'user:user3': ''}
-        self.limiter = rate_core.Limiter(TEST_LIMITS, **userlimits)
-
-    def _check(self, num, verb, url, username=None):
+    def _check(self, num, verb, url, user_id=None):
         """Check and yield results from checks."""
         for x in xrange(num):
-            yield self.limiter.check_for_delay(verb, url, username)[0]
+            yield self.limiter.check_for_delay(verb, url, user_id)[0]
 
-    def _check_sum(self, num, verb, url, username=None):
+    def _check_sum(self, num, verb, url, user_id=None):
         """Check and sum results from checks."""
-        results = self._check(num, verb, url, username)
+        results = self._check(num, verb, url, user_id)
         return sum(item for item in results if item)
 
     def test_no_delay_GET(self):
         """
         Simple test to ensure no delay on a single call for a limit verb we
-        didn"t set.
+        didn't set.
         """
         delay = self.limiter.check_for_delay("GET", "/anything")
         self.assertEqual(delay, (None, None))
@@ -220,13 +215,13 @@ class LimiterTest(object):
 
     def test_delay_PUT_servers(self):
         """
-        Ensure PUT on /servers limits at 5 requests, and PUT elsewhere is still
+        Ensure PUT on /users limits at 5 requests, and PUT elsewhere is still
         OK after 5 requests...but then after 11 total requests, PUT limiting
         kicks in.
         """
         # First 6 requests on PUT /servers
         expected = [None] * 5 + [12.0]
-        results = list(self._check(6, "PUT", "/servers"))
+        results = list(self._check(6, "PUT", "/users"))
         self.assertEqual(expected, results)
 
         # Next 5 request on PUT /anything
@@ -304,7 +299,14 @@ class LimiterTest(object):
         self.assertEqual(expected, results)
 
 
-class RestfulRateLimit(test_ct.RestfulTestCase):
+class KvsLimiterTests(BaseRateLimitingTest, LimiterTestSuite):
+    def setUp(self):
+        super(KvsLimiterTests, self).setUp()
+        userlimits = {'user3': ''}
+        self.limiter = kvs.Limiter(TEST_LIMITS, **userlimits)
+
+
+class RestfulRateLimit(object):
     def test_good_request(self):
         """Tests successful request."""
         raise nose.exc.SkipTest('TODO')
