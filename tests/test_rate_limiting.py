@@ -261,9 +261,12 @@ class LimiterTestSuite(object):
 
     def test_user_limit(self):
         """
-        Test user-specific rate_core.
+        Test user-specific rate.
         """
-        self.assertEqual(self.limiter.levels['user3'], [])
+        # Custom limit.
+        self.assertEqual(self.limiter._get_limits('user3'), [])
+        # Default limit.
+        self.assertEqual(self.limiter._get_limits('user1'), TEST_LIMITS)
 
     def test_multiple_users(self):
         """
@@ -302,8 +305,8 @@ class LimiterTestSuite(object):
 class KvsLimiterTests(BaseRateLimitingTest, LimiterTestSuite):
     def setUp(self):
         super(KvsLimiterTests, self).setUp()
-        userlimits = {'user3': ''}
-        self.limiter = kvs.Limiter(TEST_LIMITS, **userlimits)
+        userlimits = {'user3': []}
+        self.limiter = kvs.Limiter(limits=TEST_LIMITS, userlimits=userlimits)
 
 
 class RestfulRateLimit(object):

@@ -24,8 +24,17 @@ from keystone.common import wsgi
 from keystone import config
 from keystone import exception
 
+
+DEFAULT_LIMITS = """(POST, *, .*, 10, MINUTE);
+    (POST, /tokens, .*, 3, MINUTE);
+    (PUT, *, .*, 10, MINUTE);
+    (DELETE, *, .*, 10, MINUTE)"""
+
 config.register_str('driver', group='rate_limiting',
-                    default='keystone.contrib.rate.backends.kvs.Limiter')
+                   default='keystone.contrib.rate.backends.kvs.Limiter')
+config.register_str('limits', group='rate_limiting',default=DEFAULT_LIMITS)
+config.register_str('userlimits', group='rate_limiting',default='{}')
+
 CONF = config.CONF
 
 LOG = logging.getLogger(__name__)
@@ -226,6 +235,12 @@ class Manager(manager.Manager):
 
 class Driver(object):
     """Interface description for an rate limiting driver."""
+
+    def __init__(self, **kwargs):
+        if 'limits' in kwargs:
+            self.limits = kwargs['limits']
+        else:
+            self.limits = Limit.parse_limits(CONF.rate_limiting.limits)
 
     def get_limits(self, user_id):
         """Get current limits for a given user."""

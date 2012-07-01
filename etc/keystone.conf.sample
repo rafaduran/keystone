@@ -119,6 +119,8 @@
 
 [rate_limiting]
 # driver = keystone.contrib.rate.backends.kvs.Limiter
+# limits = (POST, *, .*, 10, MINUTE);(POST, /tokens, .*, 3, MINUTE);(PUT, *, .*, 10, MINUTE); (DELETE, *, .*, 10, MINUTE)
+# userlimits = {}
 
 [filter:debug]
 paste.filter_factory = keystone.common.wsgi:Debug.factory

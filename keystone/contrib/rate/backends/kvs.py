@@ -14,12 +14,64 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import ast
+
 from keystone.common import kvs
+from keystone import config
 from keystone.contrib.rate import core
 
-class Limiter(kvs.Base, core.Driver):
-    def __init__(self, *args, **kwargs):
-        pass
+
+CONF = config.CONF
+
+
+class Limiter(core.Driver, kvs.Base):
+    def __init__(self, **kwargs):
+        super(Limiter, self).__init__(**kwargs)
+        kvs.Base.__init__(self)
+
+        ul_dict = {}
+        if 'userlimits' in kwargs:
+            ul_dict = kwargs['userlimits']
+        elif CONF.rate_limiting.userlimits:
+            ul_dict = ast.literal_eval(CONF.rate_limiting.userlimits)
+
+        for user, limits in ul_dict.items():
+            if isinstance(limits, basestring):
+                limits = core.Limit.parse_limits(limits)
+            self.set_limits(user, limits)
+
+    def _get_limits(self, user_id=None):
+        limits =  self.db.get('limits-%s' % user_id)
+        if limits is None:
+            # Setting default limits is the user has no specific limits when
+            # first trying get limits.
+            limits = self.limits
+            self.set_limits(user_id, self.limits)
+        return limits
 
     def get_limits(self, user_id=None):
-        return {'limits': []}
+        limits = self._get_limits(user_id)
+        return {'limits': [limit.display() for limit in limits]}
+
+    def set_limits(self, user_id, limits):
+        if not self.db.get('limits-%s' % user_id):
+            self.db.set('limits-%s' % user_id, limits)
+
+    def check_for_delay(self, verb, url, user_id=None):
+        """
+        Check the given verb/url/user_id triplet for limit.
+
+        @return: Tuple of delay (in seconds) and error message (or None, None)
+        """
+        delays = []
+
+        for limit in self._get_limits(user_id):
+            delay = limit(verb, url)
+            if delay:
+                delays.append((delay, limit.error_message))
+
+        if delays:
+            delays.sort()
+            return delays[0]
+
+        return None, None
