@@ -14,7 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import ast
 import copy
 
 from keystone.common import kvs
@@ -27,26 +26,18 @@ CONF = config.CONF
 
 class Limiter(core.Driver, kvs.Base):
     def __init__(self, **kwargs):
-        super(Limiter, self).__init__(**kwargs)
         kvs.Base.__init__(self)
-
-        # Kwargs take precedence over confiugration, useful for testing.
-        if 'userlimits' in kwargs:
-            ul_dict = kwargs['userlimits']
-        elif CONF.rate_limiting.userlimits:
-            ul_dict = ast.literal_eval(CONF.rate_limiting.userlimits)
-
-        for user, limits in ul_dict.items():
-            if isinstance(limits, basestring):
-                limits = core.Limit.parse_limits(limits)
-            self.set_limits(user, limits)
+        super(Limiter, self).__init__(**kwargs)
 
     def _get_limits(self, user_id=None):
         limits =  self.db.get('limits-%s' % user_id)
         if limits is None:
-            # Setting default limits is the user has no specific limits when
-            # first trying get limits.
-            limits = copy.deepcopy(self.limits)
+            # If not limit is set yet, checking custom user limits first and
+            # then default limits, setting the user limits at first access.
+            if user_id in self.userlimits:
+                limits = copy.deepcopy(self.userlimits[user_id])
+            else:
+                limits = copy.deepcopy(self.limits)
             self.set_limits(user_id, limits)
         return limits
 

@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import ast
 import copy
 import logging
 import math
@@ -238,10 +239,15 @@ class Driver(object):
     """Interface description for an rate limiting driver."""
 
     def __init__(self, **kwargs):
+        # Kwargs take precedence over confiugration, useful for testing.
         if 'limits' in kwargs:
             self.limits = copy.deepcopy(kwargs['limits'])
         else:
             self.limits = Limit.parse_limits(CONF.rate_limiting.limits)
+        if 'userlimits' in kwargs:
+            self.userlimits = kwargs['userlimits']
+        elif CONF.rate_limiting.userlimits:
+            self.userlimits = ast.literal_eval(CONF.rate_limiting.userlimits)
 
     def get_limits(self, user_id):
         """Get current limits for a given user."""
