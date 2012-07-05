@@ -213,13 +213,13 @@ class LimiterTestSuite(object):
 
         self.assertEqual(expected, results)
 
-    def test_delay_PUT_servers(self):
+    def test_delay_PUT_users(self):
         """
         Ensure PUT on /users limits at 5 requests, and PUT elsewhere is still
         OK after 5 requests...but then after 11 total requests, PUT limiting
         kicks in.
         """
-        # First 6 requests on PUT /servers
+        # First 6 requests on PUT /users
         expected = [None] * 5 + [12.0]
         results = list(self._check(6, "PUT", "/users"))
         self.assertEqual(expected, results)
@@ -234,6 +234,7 @@ class LimiterTestSuite(object):
         Ensure after hitting the limit and then waiting for the correct
         amount of time, the limit will be lifted.
         """
+        # import ipdb; ipdb.set_trace()
         expected = [None] * 10 + [6.0]
         results = list(self._check(11, "PUT", "/anything"))
         self.assertEqual(expected, results)
@@ -264,9 +265,12 @@ class LimiterTestSuite(object):
         Test user-specific rate.
         """
         # Custom limit.
-        self.assertEqual(self.limiter._get_limits('user3'), [])
+        self.assertDictEqual(self.limiter.get_limits('user3'),
+                             {'limits': []})
         # Default limit.
-        self.assertEqual(self.limiter._get_limits('user1'), TEST_LIMITS)
+        self.assertDictEqual(
+                self.limiter.get_limits('user1'),
+                {'limits': [limit.display() for limit in TEST_LIMITS]})
 
     def test_multiple_users(self):
         """

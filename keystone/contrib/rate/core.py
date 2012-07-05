@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import copy
 import logging
 import math
 import re
@@ -238,7 +239,7 @@ class Driver(object):
 
     def __init__(self, **kwargs):
         if 'limits' in kwargs:
-            self.limits = kwargs['limits']
+            self.limits = copy.deepcopy(kwargs['limits'])
         else:
             self.limits = Limit.parse_limits(CONF.rate_limiting.limits)
 

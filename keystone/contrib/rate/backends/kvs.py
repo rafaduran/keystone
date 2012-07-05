@@ -15,6 +15,7 @@
 # under the License.
 
 import ast
+import copy
 
 from keystone.common import kvs
 from keystone import config
@@ -29,7 +30,7 @@ class Limiter(core.Driver, kvs.Base):
         super(Limiter, self).__init__(**kwargs)
         kvs.Base.__init__(self)
 
-        ul_dict = {}
+        # Kwargs take precedence over confiugration, useful for testing.
         if 'userlimits' in kwargs:
             ul_dict = kwargs['userlimits']
         elif CONF.rate_limiting.userlimits:
@@ -45,8 +46,8 @@ class Limiter(core.Driver, kvs.Base):
         if limits is None:
             # Setting default limits is the user has no specific limits when
             # first trying get limits.
-            limits = self.limits
-            self.set_limits(user_id, self.limits)
+            limits = copy.deepcopy(self.limits)
+            self.set_limits(user_id, limits)
         return limits
 
     def get_limits(self, user_id=None):
@@ -54,8 +55,7 @@ class Limiter(core.Driver, kvs.Base):
         return {'limits': [limit.display() for limit in limits]}
 
     def set_limits(self, user_id, limits):
-        if not self.db.get('limits-%s' % user_id):
-            self.db.set('limits-%s' % user_id, limits)
+        self.db.set('limits-%s' % user_id, limits)
 
     def check_for_delay(self, verb, url, user_id=None):
         """
