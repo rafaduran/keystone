@@ -19,6 +19,7 @@ import copy
 from keystone.common import kvs
 from keystone import config
 from keystone.contrib.rate import core
+from keystone import exception
 
 
 CONF = config.CONF
@@ -30,15 +31,16 @@ class Limiter(core.Driver, kvs.Base):
         super(Limiter, self).__init__(**kwargs)
 
     def _get_limits(self, user_id=None):
-        limits =  self.db.get('limits-%s' % user_id)
-        if limits is None:
+        try:
+            limits =  self.db.get('limits-%s' % user_id)
+        except exception.NotFound:
             # If not limit is set yet, checking custom user limits first and
             # then default limits, setting the user limits at first access.
-            if user_id in self.userlimits:
+            try:
                 limits = copy.deepcopy(self.userlimits[user_id])
-            else:
+            except KeyError:
                 limits = copy.deepcopy(self.limits)
-            self.set_limits(user_id, limits)
+        self.set_limits(user_id, limits)
         return limits
 
     def get_limits(self, user_id=None):
