@@ -394,7 +394,7 @@ class RateMiddlewareTests(BaseRateLimitingTest):
     def _request_and_stub(self, token_id=None, url='/', is_admin=False,
                           method='GET', params_ctx=False, delay=None,
                           msg=None):
-        req =  webob.Request.blank(url)
+        req = webob.Request.blank(url)
         req.method = method
         req.environ['openstack.context'] = {
                     'token_id': token_id,
@@ -424,10 +424,11 @@ class RateMiddlewareTests(BaseRateLimitingTest):
 
         return req
 
-    def test_limit_class(self):
+    def test_limiter_class(self):
         """Test that middleware selected correct limiter class."""
-        assert isinstance(self.middleware.limiter.driver,
-                          importutils.import_class(CONF.rate_limiting.driver))
+        self.assertTrue(isinstance(self.middleware.limiter.driver,
+                                   importutils.import_class(
+                                       CONF.rate_limiting.driver)))
 
     def test_GET_token_request(self):
         """Test GET request through middleware, 'user_id' is taken from
@@ -522,24 +523,68 @@ class RateMiddlewareTests(BaseRateLimitingTest):
         raise nose.exc.SkipTest('Behavior to be determined.')
 
 
-#class LimitsrollerTest(object):
-#    def test_token_user_mapping(self):
-#        """Tests that a given token is mapped to its owner."""
-#        raise nose.exc.SkipTest('TODO')
-#
-#    def test_default_limits(self):
-#        """Tests the default rate_core."""
-#        raise nose.exc.SkipTest('TODO')
-#
-#    def test_non_default_limits(self):
-#        """Test limits from configuration."""
-#        raise nose.exc.SkipTest('TODO')
-#
-#    def custom_limits(self):
-#        """Test custom limits for a given user."""
-#        raise nose.exc.SkipTest('TODO')
-#
-#
+class LimitsrollerTest(BaseRateLimitingTest):
+    def setUp(self):
+        """Prepare middleware for use through fake WSGI app."""
+        super(LimitsrollerTest, self).setUp()
+        self.controller = rate_core.LimitsController()
+        self.username = 'user'
+        self.user_id = uuid.uuid4().hex
+        self.limits = {
+            "limits": [
+                {
+                    "regex": ".*",
+                    "resetTime": 1341692872,
+                    "URI": "*",
+                    "value": 10,
+                    "verb": "GET",
+                    "remaining": 10,
+                    "unit": "MINUTE"
+                },
+                {
+                    "regex": ".*",
+                    "resetTime": 1341692880,
+                    "URI": "*", "value": 5,
+                    "verb": "POST",
+                    "remaining": 3,
+                    "unit": "HOUR"
+                },
+            ]
+        }
+
+    def _stub(self, user_id, limits):
+        self.mox.StubOutWithMock(self.middleware.limiter, 'get_limits')
+        self.middleware.limiter.check_for_delay(
+                user_id=user_id).AndReturn(limits)
+        self.mox.ReplayAll()
+
+    def test_limiter_class(self):
+        """Test the right limitir class is selected."""
+        self.assertTrue(isinstance(self.controller.limiter.driver,
+                                   importutils.import_class(
+                                       CONF.rate_limiting.driver)))
+
+    def test_get_limits(self):
+        """Tests 'get_limits'."""
+        raise nose.exc.SkipTest('TODO')
+
+    def test_get_limits_unauthenticated(self):
+        """Tests 'get_limits' unaunthenticated user."""
+        raise nose.exc.SkipTest('TODO')
+
+    def test_admin_get_user_limits(self):
+        """Test admin can get limits for any given user."""
+        raise nose.exc.SkipTest('TODO')
+
+    def test_admin_get_user_not_found_limits(self):
+        """Tests admin get limits for a user not found."""
+        raise nose.exc.SkipTest('TODO')
+
+    def test_non_admin_get_user_limits(self):
+        """Tests a non admin user trying to get limits for any given user."""
+        raise nose.exc.SkipTest('TODO')
+
+
 #class RestfulRateLimit(object):
 #    def test_good_request(self):
 #        """Tests successful request."""
