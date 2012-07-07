@@ -141,6 +141,11 @@ class LimitTest(BaseRateLimitingTest):
                     rate_core.PER_SECOND, rate_core.PER_DAY]
         self.assertEqual([t.unit for t in l], expected)
 
+    def test_empty(self):
+        """Tests a blank string returns an empty list."""
+        self.assertListEqual([], rate_core.Limit.parse_limits('  '))
+        self.assertListEqual([], rate_core.Limit.parse_limits(''))
+
 
 class LimitsControllerTest(object):
     def test_token_user_mapping(self):
