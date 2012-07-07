@@ -25,6 +25,8 @@ from keystone.common import manager
 from keystone.common import wsgi
 from keystone import config
 from keystone import exception
+from keystone import identity
+from keystone import token
 
 
 DEFAULT_LIMITS = """(POST, *, .*, 10, MINUTE);
@@ -274,6 +276,8 @@ class RateLimitingMiddleware(wsgi.Middleware):
     def __init__(self, app):
         super(RateLimitingMiddleware, self).__init__(app)
         self.limiter = Manager()
+        self.identity_api = identity.Manager()
+        self.token_api = token.Manager()
 
     def process_response(self, request, response):
         return response
