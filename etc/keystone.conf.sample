@@ -168,10 +168,10 @@ paste.app_factory = keystone.service:public_app_factory
 paste.app_factory = keystone.service:admin_app_factory
 
 [pipeline:public_api]
-pipeline = stats_monitoring url_normalize rate_limiting_middleware token_auth admin_token_auth xml_body json_body debug ec2_extension rate_limiting_extension public_service
+pipeline = stats_monitoring url_normalize token_auth admin_token_auth xml_body json_body debug rate_limiting_middleware ec2_extension rate_limiting_extension public_service
 
 [pipeline:admin_api]
-pipeline = stats_monitoring url_normalize rate_limiting_middleware token_auth admin_token_auth xml_body json_body debug stats_reporting ec2_extension s3_extension crud_extension rate_limiting_extension admin_service
+pipeline = stats_monitoring url_normalize token_auth admin_token_auth xml_body json_body debug rate_limiting_middleware stats_reporting ec2_extension s3_extension crud_extension rate_limiting_extension admin_service
 
 [app:public_version_service]
 paste.app_factory = keystone.service:public_version_app_factory
