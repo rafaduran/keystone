@@ -39,6 +39,7 @@ TEST_LIMITS = [
     rate_core.Limit("PUT", "/users", "^/users", 5, rate_core.PER_MINUTE),
 ]
 
+
 class BaseRateLimitingTest(test.TestCase):
     """Base test suite which provides relevant stubs and time abstratcion."""
 
@@ -110,10 +111,11 @@ class LimitTest(BaseRateLimitingTest):
     def test_multiple_rules(self):
         """Test that parse_limits() handles multiple rules correctly."""
         try:
-            l = rate_core.Limit.parse_limits('(get, *, .*, 20, minute);'
-                                             '(PUT, /foo*, /foo.*, 10, hour);'
-                                             '(POST, /bar*, /bar.*, 5, second);'
-                                             '(Say, /derp*, /derp.*, 1, day)')
+            l = rate_core.Limit.parse_limits(
+                    '(get, *, .*, 20, minute);'
+                    '(PUT, /foo*, /foo.*, 10, hour);'
+                    '(POST, /bar*, /bar.*, 5, second);'
+                    '(Say, /derp*, /derp.*, 1, day)')
         except ValueError, e:
             assert False, str(e)
 
@@ -374,8 +376,8 @@ class RateMiddlewareTests(BaseRateLimitingTest):
         self.middleware.http_client_class = FakeHTTPConnection
         self.username = 'user'
         self.user_id = uuid.uuid4().hex
-        self.params = {"auth": {"passwordCredentials":{
-                    "username": self.username, "password": "secrete"}}}
+        self.params = {"auth": {"passwordCredentials": {
+                       "username": self.username, "password": "secrete"}}}
 
     def _start_fake_response(self, status, headers):
         self.response_status = int(status.split(' ', 1)[0])
@@ -396,15 +398,15 @@ class RateMiddlewareTests(BaseRateLimitingTest):
                 'token_id': token_id,
                 }
 
-        self.mox.StubOutWithMock(self.middleware.limiter.driver,
-                                 'check_for_delay')
-        self.middleware.limiter.driver.check_for_delay(
-                verb='GET', url='/', user_id=self.user_id).AndReturn(
-                        (None, None))
-
-        self.mox.StubOutWithMock(self.middleware.token_api.driver, 'get_token')
-        self.middleware.token_api.driver.get_token(token_id=token_id).AndReturn(
+        self.mox.StubOutWithMock(self.middleware.token_api, 'get_token')
+        self.middleware.token_api.get_token(
+                {}, token_id).AndReturn(
                         ({'user_ref': self.user_id}))
+
+        self.mox.StubOutWithMock(self.middleware.limiter, 'check_for_delay')
+        self.middleware.limiter.check_for_delay(
+                {}, verb='GET', url='/', user_id=self.user_id).AndReturn(
+                        (None, None))
 
         self.mox.ReplayAll()
 
@@ -422,17 +424,18 @@ class RateMiddlewareTests(BaseRateLimitingTest):
         req.environ['openstack.params'] = self.params
         req.method = 'POST'
 
-        self.mox.StubOutWithMock(self.middleware.identity_api.driver,
+        self.mox.StubOutWithMock(self.middleware.identity_api,
                 'get_user_by_name')
-        self.middleware.identity_api.driver.get_user_by_name(
-                user_name=self.username).AndReturn(
+        self.middleware.identity_api.get_user_by_name(
+                {}, self.username).AndReturn(
                         ({'id': self.user_id}))
 
-        self.mox.StubOutWithMock(self.middleware.limiter.driver,
+        self.mox.StubOutWithMock(self.middleware.limiter,
                                  'check_for_delay')
-        self.middleware.limiter.driver.check_for_delay(
-                user_id=self.user_id, url='/tokens', verb='POST').AndReturn(
-                    (None, None))
+        self.middleware.limiter.check_for_delay({},
+                user_id=self.user_id,
+                url='/tokens',
+                verb='POST').AndReturn((None, None))
 
         self.mox.ReplayAll()
 
@@ -450,14 +453,15 @@ class RateMiddlewareTests(BaseRateLimitingTest):
         req.environ['openstack.params'] = self.params
         req.method = 'POST'
 
-        self.mox.StubOutWithMock(self.middleware.limiter.driver,
+        self.mox.StubOutWithMock(self.middleware.limiter,
                                  'check_for_delay')
-        self.middleware.limiter.driver.check_for_delay(
-                verb='GET', url='/', user_id=self.user_id).AndReturn(
-                        (None, None))
+        self.middleware.limiter.check_for_delay({},
+                verb='POST',
+                url='/tokens',
+                user_id=self.user_id).AndReturn((None, None))
 
-        self.mox.StubOutWithMock(self.middleware.token_api.driver, 'get_token')
-        self.middleware.token_api.driver.get_token(token_id=token_id).AndReturn(
+        self.mox.StubOutWithMock(self.middleware.token_api, 'get_token')
+        self.middleware.token_api.get_token({}, token_id).AndReturn(
                         ({'user_ref': self.user_id}))
 
         self.mox.ReplayAll()
@@ -481,14 +485,14 @@ class RateMiddlewareTests(BaseRateLimitingTest):
                 'token_id': token_id,
                 }
 
-        self.mox.StubOutWithMock(self.middleware.limiter.driver,
-                                 'check_for_delay')
-        self.middleware.limiter.driver.check_for_delay(
-                verb='GET', url='/', user_id=self.user_id).AndReturn(
-                        (delay, msg))
+        self.mox.StubOutWithMock(self.middleware.limiter, 'check_for_delay')
+        self.middleware.limiter.check_for_delay({},
+                verb='GET',
+                url='/',
+                user_id=self.user_id).AndReturn((delay, msg))
 
-        self.mox.StubOutWithMock(self.middleware.token_api.driver,'get_token')
-        self.middleware.token_api.driver.get_token(token_id=token_id).AndReturn(
+        self.mox.StubOutWithMock(self.middleware.token_api, 'get_token')
+        self.middleware.token_api.get_token({}, token_id).AndReturn(
                         ({'user_ref': self.user_id}))
 
         self.mox.ReplayAll()
@@ -517,17 +521,16 @@ class RateMiddlewareTests(BaseRateLimitingTest):
         req.environ['openstack.params'] = self.params
         req.method = 'POST'
 
-        self.mox.StubOutWithMock(self.middleware.identity_api.driver,
-                'get_user_by_name')
-        self.middleware.identity_api.driver.get_user_by_name(
-                user_name=self.username).AndReturn(
-                        ({'id': self.user_id}))
+        self.mox.StubOutWithMock(self.middleware.identity_api,
+                                 'get_user_by_name')
+        self.middleware.identity_api.get_user_by_name(
+                {}, self.username).AndReturn(({'id': self.user_id}))
 
-        self.mox.StubOutWithMock(self.middleware.limiter.driver,
-                                 'check_for_delay')
-        self.middleware.limiter.driver.check_for_delay(
-                verb='GET', url='/', user_id=self.user_id).AndReturn(
-                        (delay, msg))
+        self.mox.StubOutWithMock(self.middleware.limiter, 'check_for_delay')
+        self.middleware.limiter.check_for_delay({},
+                verb='POST',
+                url='/tokens',
+                user_id=self.user_id).AndReturn((delay, msg))
 
         self.mox.ReplayAll()
 
