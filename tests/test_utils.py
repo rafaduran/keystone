@@ -63,3 +63,37 @@ class UtilsTestCase(test.TestCase):
         self.assertFalse(utils.auth_str_equal('a', 'aaaaa'))
         self.assertFalse(utils.auth_str_equal('aaaaa', 'a'))
         self.assertFalse(utils.auth_str_equal('ABC123', 'abc123'))
+
+    def test_memoized_ok(self):
+        """Tests the 'memoized' decorator."""
+        @utils.memoized
+        def test(num):
+            calls.append(num)
+            if num == 0:
+                return [num]
+            return [num] + test(num-1)
+
+        # At first all calls should be done.
+        calls = []
+        expected = [3, 2, 1, 0]
+
+        result = test(3)
+        self.assertListEqual(result, expected)
+        self.assertListEqual(calls, expected)
+
+        # Now the results should be cached and no call done.
+        calls = []
+        expected = []
+
+        result2 = test(3)
+        self.assertListEqual(result2, result)
+        self.assertListEqual(calls, expected)
+
+    def test_memoize_no_hashable(self):
+        """Tests memoized with no hashable objects."""
+        @utils.memoized
+        def test2(a_list):
+            return sorted(a_list)
+
+        my_list = [1, 3, 2]
+        self.assertListEqual(test2(my_list), sorted(my_list))

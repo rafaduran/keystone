@@ -24,6 +24,7 @@ import time
 import webob.exc
 
 from keystone.common import manager
+from keystone.common import utils
 from keystone.common import wsgi
 from keystone import config
 from keystone import exception
@@ -316,8 +317,12 @@ class RateLimitingMiddleware(wsgi.Middleware):
             user_id = self.identity_api.get_user_by_name({}, username)['id']
         return user_id
 
+    @utils.memoized
     def _get_user_id_from_token_id(self, token_id):
+        """Returns the 'user_id' for a given 'token_id'."""
         # TODO (rafaduran): Need check NotFound, anything else???
+        # Token user doesn't change, thus we can use memoize so we only need
+        # ask for a given token once.
         return self.token_api.get_token({}, token_id)['user']['id']
 
     def _reject_request(self, env, start_response):
