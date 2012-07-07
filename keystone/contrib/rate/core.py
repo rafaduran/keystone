@@ -40,8 +40,8 @@ DEFAULT_LIMITS = """(POST, *, .*, 10, MINUTE);
 
 config.register_str('driver', group='rate_limiting',
                    default='keystone.contrib.rate.backends.kvs.Limiter')
-config.register_str('limits', group='rate_limiting',default=DEFAULT_LIMITS)
-config.register_str('userlimits', group='rate_limiting',default='{}')
+config.register_str('limits', group='rate_limiting', default=DEFAULT_LIMITS)
+config.register_str('userlimits', group='rate_limiting', default='{}')
 
 CONF = config.CONF
 
@@ -282,6 +282,8 @@ class RateLimitingMiddleware(wsgi.Middleware):
         self.limiter = Manager()
         self.identity_api = identity.Manager()
         self.token_api = token.Manager()
+        self.os_p = core_mid.PARAMS_ENV
+        self.os_c = core_mid.CONTEXT_ENV
 
     def process_response(self, request, response):
         return response
@@ -301,13 +303,14 @@ class RateLimitingMiddleware(wsgi.Middleware):
             return self._reject_request
 
     def _get_user_id(self, request):
-        token_id = request.environ[core_mid.CONTEXT_ENV]['token_id']
+        env = request.environ
+        token_id = env[self.os_c]['token_id']
         if token_id:
             user_id = self._get_user_id_from_token_id(token_id)
         else:
             try:
-                username = request.environ[core_mid.PARAMS_ENV]['auth'] \
-                                          ['passwordCredentials']['username']
+                username =\
+                    env[self.os_p]['auth']['passwordCredentials']['username']
             except KeyError:
                 # No user provided
                 # TODO (rafaduran): is OK just raise a 401?

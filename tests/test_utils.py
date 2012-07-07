@@ -71,7 +71,7 @@ class UtilsTestCase(test.TestCase):
             calls.append(num)
             if num == 0:
                 return [num]
-            return [num] + test(num-1)
+            return [num] + test(num - 1)
 
         # At first all calls should be done.
         calls = []

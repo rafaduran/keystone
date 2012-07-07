@@ -32,7 +32,7 @@ class Limiter(core.Driver, kvs.Base):
 
     def _get_limits(self, user_id=None):
         try:
-            limits =  self.db.get('limits-%s' % user_id)
+            limits = self.db.get('limits-%s' % user_id)
         except exception.NotFound:
             # If not limit is set yet, checking custom user limits first and
             # then default limits, setting the user limits at first access.
