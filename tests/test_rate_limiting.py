@@ -148,6 +148,12 @@ class LimitTest(BaseRateLimitingTest):
         self.assertListEqual([], rate_core.Limit.parse_limits('  '))
         self.assertListEqual([], rate_core.Limit.parse_limits(''))
 
+    def test_negative_value(self):
+        """Tests a negative value raises `ValueError`."""
+        self.assertRaises(ValueError,
+                          rate_core.Limit.parse_limits,
+                          '(get, *, .*, -1, minute);')
+
 
 class LimitsControllerTest(object):
     def test_token_user_mapping(self):
