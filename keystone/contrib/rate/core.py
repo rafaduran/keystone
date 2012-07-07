@@ -286,6 +286,9 @@ class RateLimitingMiddleware(wsgi.Middleware):
         return response
 
     def process_request(self, request):
+        if request.environ[core_mid.CONTEXT_ENV]['is_admin']:
+            return
+
         user_id = self._get_user_id(request)
         self.delay, self.msg = self.limiter.check_for_delay(
                 {},
@@ -314,8 +317,8 @@ class RateLimitingMiddleware(wsgi.Middleware):
         return user_id
 
     def _get_user_id_from_token_id(self, token_id):
-        # TODO: Need check NotFound, anything else???
-        return self.token_api.get_token({}, token_id)['user_ref']
+        # TODO (rafaduran): Need check NotFound, anything else???
+        return self.token_api.get_token({}, token_id)['user']['id']
 
     def _reject_request(self, env, start_response):
         """Rejet the request and set a 'Retry-after' header.

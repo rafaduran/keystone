@@ -396,12 +396,13 @@ class RateMiddlewareTests(BaseRateLimitingTest):
         # This should be set by other middlewares, so adding here manaually.
         req.environ['openstack.context'] = {
                 'token_id': token_id,
+                'is_admin': False
                 }
 
         self.mox.StubOutWithMock(self.middleware.token_api, 'get_token')
         self.middleware.token_api.get_token(
                 {}, token_id).AndReturn(
-                        ({'user_ref': self.user_id}))
+                        ({'user': {'id': self.user_id}}))
 
         self.mox.StubOutWithMock(self.middleware.limiter, 'check_for_delay')
         self.middleware.limiter.check_for_delay(
@@ -420,6 +421,7 @@ class RateMiddlewareTests(BaseRateLimitingTest):
         # This should be set by other middlewares, so adding here manaually.
         req.environ['openstack.context'] = {
                 'token_id': None,
+                'is_admin': False
                 }
         req.environ['openstack.params'] = self.params
         req.method = 'POST'
@@ -449,6 +451,7 @@ class RateMiddlewareTests(BaseRateLimitingTest):
         # This should be set by other middlewares, so adding here manaually.
         req.environ['openstack.context'] = {
                 'token_id': token_id,
+                'is_admin': False
                 }
         req.environ['openstack.params'] = self.params
         req.method = 'POST'
@@ -462,7 +465,7 @@ class RateMiddlewareTests(BaseRateLimitingTest):
 
         self.mox.StubOutWithMock(self.middleware.token_api, 'get_token')
         self.middleware.token_api.get_token({}, token_id).AndReturn(
-                        ({'user_ref': self.user_id}))
+                        ({'user': {'id': self.user_id}}))
 
         self.mox.ReplayAll()
 
@@ -483,6 +486,7 @@ class RateMiddlewareTests(BaseRateLimitingTest):
         # This should be set by other middlewares, so adding here manaually.
         req.environ['openstack.context'] = {
                 'token_id': token_id,
+                'is_admin': False
                 }
 
         self.mox.StubOutWithMock(self.middleware.limiter, 'check_for_delay')
@@ -493,7 +497,7 @@ class RateMiddlewareTests(BaseRateLimitingTest):
 
         self.mox.StubOutWithMock(self.middleware.token_api, 'get_token')
         self.middleware.token_api.get_token({}, token_id).AndReturn(
-                        ({'user_ref': self.user_id}))
+                        ({'user': {'id': self.user_id}}))
 
         self.mox.ReplayAll()
 
@@ -517,6 +521,7 @@ class RateMiddlewareTests(BaseRateLimitingTest):
         # This should be set by other middlewares, so adding here manaually.
         req.environ['openstack.context'] = {
                 'token_id': None,
+                'is_admin': False
                 }
         req.environ['openstack.params'] = self.params
         req.method = 'POST'
@@ -544,6 +549,17 @@ class RateMiddlewareTests(BaseRateLimitingTest):
         body = jsonutils.loads(response)
         value = body["overLimitFault"]["details"].strip()
         self.assertEqual(value, msg)
+
+    def test_admin_token(self):
+        token_id = CONF.admin_token
+        req = webob.Request.blank("/")
+        # This should be set by other middlewares, so adding here manaually.
+        req.environ['openstack.context'] = {
+                'token_id': token_id,
+                'is_admin': True
+                }
+
+        self.middleware(req.environ, self._start_fake_response)
 
 
 #class LimitsrollerTest(object):
