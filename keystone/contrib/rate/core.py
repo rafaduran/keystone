@@ -337,7 +337,7 @@ class RateLimitingMiddleware(wsgi.Middleware):
 
         """
         msg = '{"overLimitFault": {"details": "%s"}}' % self.msg
-        headers = [("Retry-After", "%s" % self.delay)]
+        headers = [("Retry-After", self.delay)]
         resp = HTTPTooManyRequests(headers=headers)
         # TODO (rafaduran): do we need xml too here?
         resp.content_type = 'txt/json'
