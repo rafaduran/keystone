@@ -26,6 +26,7 @@ from keystone.common import wsgi
 from keystone import config
 from keystone import exception
 from keystone import identity
+import keystone.middleware.core as core_mid
 from keystone import token
 
 
@@ -283,4 +284,32 @@ class RateLimitingMiddleware(wsgi.Middleware):
         return response
 
     def process_request(self, request):
-        pass
+        user_id = self._get_user_id(request)
+        delay, msg = self.limiter.check_for_delay({},
+                                                  verb=request.method,
+                                                  url=request.path,
+                                                  user_id=user_id)
+        if delay:
+            # Breaking the pipeline and returng a overLimitFault
+            # TODO
+            pass
+
+    def _get_user_id(self, request):
+        token_id = request.environ[core_mid.CONTEXT_ENV]['token_id']
+        if token_id:
+            user_id = self._get_user_id_from_token_id(token_id)
+        else:
+            try:
+                username = request.environ[core_mid.PARAMS_ENV]['auth'] \
+                                          ['passwordCredentials']['username']
+            except KeyError:
+                # No user provided
+                # TODO (rafaduran): is OK just raise a 401?
+                raise exception.Unauthorized()
+
+            user_id = self.identity_api.get_user_by_name({}, username)['id']
+        return user_id
+
+    def _get_user_id_from_token_id(self, token_id):
+        # TODO: Need check NotFound, anything else???
+        return self.token_api.get_token({}, token_id)['token_ref']
