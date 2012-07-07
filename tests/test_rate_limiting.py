@@ -378,10 +378,45 @@ class RateMiddlewareTests(BaseRateLimitingTest):
         self.user_id = uuid.uuid4().hex
         self.params = {"auth": {"passwordCredentials": {
                        "username": self.username, "password": "secrete"}}}
+        self.delay = 60
+        self.msg = "Only 1 GET request(s) can be made to * every minute."
 
     def _start_fake_response(self, status, headers):
         self.response_status = int(status.split(' ', 1)[0])
         self.response_headers = dict(headers)
+
+    def _request_and_stub(self, token_id=None, url='/', is_admin=False,
+                          method='GET', params_ctx=False, delay=None,
+                          msg=None):
+        req =  webob.Request.blank(url)
+        req.method = method
+        req.environ['openstack.context'] = {
+                    'token_id': token_id,
+                    'is_admin': is_admin
+                }
+        if params_ctx:
+            req.environ['openstack.params'] = self.params
+
+        if token_id:
+            self.mox.StubOutWithMock(self.middleware.token_api, 'get_token')
+            self.middleware.token_api.get_token(
+                    {}, token_id).AndReturn(
+                            ({'user': {'id': self.user_id}}))
+        else:
+            self.mox.StubOutWithMock(self.middleware.identity_api,
+                                     'get_user_by_name')
+            self.middleware.identity_api.get_user_by_name(
+                    {}, self.username).AndReturn(
+                            ({'id': self.user_id}))
+
+        self.mox.StubOutWithMock(self.middleware.limiter, 'check_for_delay')
+        self.middleware.limiter.check_for_delay(
+                {}, verb=method, url=url, user_id=self.user_id).AndReturn(
+                        (delay, msg))
+
+        self.mox.ReplayAll()
+
+        return req
 
     def test_limit_class(self):
         """Test that middleware selected correct limiter class."""
@@ -392,24 +427,7 @@ class RateMiddlewareTests(BaseRateLimitingTest):
         """Test GET request through middleware, 'user_id' is taken from
         token."""
         token_id = uuid.uuid4().hex
-        req = webob.Request.blank("/")
-        # This should be set by other middlewares, so adding here manaually.
-        req.environ['openstack.context'] = {
-                'token_id': token_id,
-                'is_admin': False
-                }
-
-        self.mox.StubOutWithMock(self.middleware.token_api, 'get_token')
-        self.middleware.token_api.get_token(
-                {}, token_id).AndReturn(
-                        ({'user': {'id': self.user_id}}))
-
-        self.mox.StubOutWithMock(self.middleware.limiter, 'check_for_delay')
-        self.middleware.limiter.check_for_delay(
-                {}, verb='GET', url='/', user_id=self.user_id).AndReturn(
-                        (None, None))
-
-        self.mox.ReplayAll()
+        req = self._request_and_stub(token_id=token_id)
 
         self.middleware(req.environ, self._start_fake_response)
         self.assertEqual(200, self.response_status)
@@ -417,29 +435,9 @@ class RateMiddlewareTests(BaseRateLimitingTest):
     def test_POST_params_request(self):
         """Test POST request through middleware, 'user_id' is taken from
         params 'username'."""
-        req = webob.Request.blank("/tokens")
-        # This should be set by other middlewares, so adding here manaually.
-        req.environ['openstack.context'] = {
-                'token_id': None,
-                'is_admin': False
-                }
-        req.environ['openstack.params'] = self.params
-        req.method = 'POST'
-
-        self.mox.StubOutWithMock(self.middleware.identity_api,
-                'get_user_by_name')
-        self.middleware.identity_api.get_user_by_name(
-                {}, self.username).AndReturn(
-                        ({'id': self.user_id}))
-
-        self.mox.StubOutWithMock(self.middleware.limiter,
-                                 'check_for_delay')
-        self.middleware.limiter.check_for_delay({},
-                user_id=self.user_id,
-                url='/tokens',
-                verb='POST').AndReturn((None, None))
-
-        self.mox.ReplayAll()
+        req = self._request_and_stub(method='POST',
+                                     url='/tokens',
+                                     params_ctx=True)
 
         self.middleware(req.environ, self._start_fake_response)
         self.assertEqual(200, self.response_status)
@@ -447,59 +445,21 @@ class RateMiddlewareTests(BaseRateLimitingTest):
     def test_POST_token_request(self):
         """Tests token takes precedence over params."""
         token_id = uuid.uuid4().hex
-        req = webob.Request.blank("/tokens")
-        # This should be set by other middlewares, so adding here manaually.
-        req.environ['openstack.context'] = {
-                'token_id': token_id,
-                'is_admin': False
-                }
-        req.environ['openstack.params'] = self.params
-        req.method = 'POST'
-
-        self.mox.StubOutWithMock(self.middleware.limiter,
-                                 'check_for_delay')
-        self.middleware.limiter.check_for_delay({},
-                verb='POST',
-                url='/tokens',
-                user_id=self.user_id).AndReturn((None, None))
-
-        self.mox.StubOutWithMock(self.middleware.token_api, 'get_token')
-        self.middleware.token_api.get_token({}, token_id).AndReturn(
-                        ({'user': {'id': self.user_id}}))
-
-        self.mox.ReplayAll()
+        req = self._request_and_stub(token_id=token_id,
+                                     method='POST',
+                                     url='/tokens',
+                                     params_ctx=True)
 
         self.middleware(req.environ, self._start_fake_response)
         self.assertEqual(200, self.response_status)
-
-    def test_no_user_request(self):
-        """Test request with no user."""
-        raise nose.exc.SkipTest('TODO')
 
     def test_limited_token_request(self):
         """Test a rate-limited (429) GET request through middleware, 'ref_id'
         is 'token_id'."""
         token_id = uuid.uuid4().hex
-        delay = 60
-        msg = "Only 1 GET request(s) can be made to * every minute."
-        req = webob.Request.blank("/")
-        # This should be set by other middlewares, so adding here manaually.
-        req.environ['openstack.context'] = {
-                'token_id': token_id,
-                'is_admin': False
-                }
-
-        self.mox.StubOutWithMock(self.middleware.limiter, 'check_for_delay')
-        self.middleware.limiter.check_for_delay({},
-                verb='GET',
-                url='/',
-                user_id=self.user_id).AndReturn((delay, msg))
-
-        self.mox.StubOutWithMock(self.middleware.token_api, 'get_token')
-        self.middleware.token_api.get_token({}, token_id).AndReturn(
-                        ({'user': {'id': self.user_id}}))
-
-        self.mox.ReplayAll()
+        req = self._request_and_stub(token_id=token_id,
+                                     delay=self.delay,
+                                     msg=self.msg)
 
         response = self.middleware(req.environ, self._start_fake_response)[0]
         self.assertEqual(self.response_status, 429)
@@ -510,34 +470,16 @@ class RateMiddlewareTests(BaseRateLimitingTest):
 
         body = jsonutils.loads(response)
         value = body["overLimitFault"]["details"].strip()
-        self.assertEqual(value, msg)
+        self.assertEqual(value, self.msg)
 
     def test_limited_user_request(self):
         """Test a rate-limited (429) POST request through middleware, 'user_id'
         is taken from params 'username'."""
-        delay = 60
-        msg = "Only 1 GET request(s) can be made to * every minute."
-        req = webob.Request.blank("/tokens")
-        # This should be set by other middlewares, so adding here manaually.
-        req.environ['openstack.context'] = {
-                'token_id': None,
-                'is_admin': False
-                }
-        req.environ['openstack.params'] = self.params
-        req.method = 'POST'
-
-        self.mox.StubOutWithMock(self.middleware.identity_api,
-                                 'get_user_by_name')
-        self.middleware.identity_api.get_user_by_name(
-                {}, self.username).AndReturn(({'id': self.user_id}))
-
-        self.mox.StubOutWithMock(self.middleware.limiter, 'check_for_delay')
-        self.middleware.limiter.check_for_delay({},
-                verb='POST',
-                url='/tokens',
-                user_id=self.user_id).AndReturn((delay, msg))
-
-        self.mox.ReplayAll()
+        req = self._request_and_stub(method='POST',
+                                     url='/tokens',
+                                     params_ctx=True,
+                                     delay=self.delay,
+                                     msg=self.msg)
 
         response = self.middleware(req.environ, self._start_fake_response)[0]
         self.assertEqual(self.response_status, 429)
@@ -548,7 +490,7 @@ class RateMiddlewareTests(BaseRateLimitingTest):
 
         body = jsonutils.loads(response)
         value = body["overLimitFault"]["details"].strip()
-        self.assertEqual(value, msg)
+        self.assertEqual(value, self.msg)
 
     def test_admin_token(self):
         token_id = CONF.admin_token
@@ -560,6 +502,18 @@ class RateMiddlewareTests(BaseRateLimitingTest):
                 }
 
         self.middleware(req.environ, self._start_fake_response)
+
+    def test_no_user_request(self):
+        """Test request with no user."""
+        raise nose.exc.SkipTest('Behavior to be determined.')
+
+    def test_token_not_found(self):
+        """Test request with missing token."""
+        raise nose.exc.SkipTest('Behavior to be determined.')
+
+    def test_user_not_found(self):
+        """Test request with missing user."""
+        raise nose.exc.SkipTest('Behavior to be determined.')
 
 
 #class LimitsrollerTest(object):
