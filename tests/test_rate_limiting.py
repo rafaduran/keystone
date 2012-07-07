@@ -497,7 +497,7 @@ class RateMiddlewareTests(BaseRateLimitingTest):
 
         self.mox.ReplayAll()
 
-        response = self.middleware(req.environ, self._start_fake_response)
+        response = self.middleware(req.environ, self._start_fake_response)[0]
         self.assertEqual(self.response_status, 429)
 
         self.assertTrue('Retry-After' in self.response_headers)
@@ -534,7 +534,7 @@ class RateMiddlewareTests(BaseRateLimitingTest):
 
         self.mox.ReplayAll()
 
-        response = self.middleware(req.environ, self._start_fake_response)
+        response = self.middleware(req.environ, self._start_fake_response)[0]
         self.assertEqual(self.response_status, 429)
 
         self.assertTrue('Retry-After' in self.response_headers)

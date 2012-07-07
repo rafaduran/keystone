@@ -21,6 +21,8 @@ import math
 import re
 import time
 
+import webob.exc
+
 from keystone.common import manager
 from keystone.common import wsgi
 from keystone import config
@@ -285,14 +287,14 @@ class RateLimitingMiddleware(wsgi.Middleware):
 
     def process_request(self, request):
         user_id = self._get_user_id(request)
-        delay, msg = self.limiter.check_for_delay({},
-                                                  verb=request.method,
-                                                  url=request.path,
-                                                  user_id=user_id)
-        if delay:
+        self.delay, self.msg = self.limiter.check_for_delay(
+                {},
+                verb=request.method,
+                url=request.path,
+                user_id=user_id)
+        if self.delay:
             # Breaking the pipeline and returng a overLimitFault
-            # TODO
-            pass
+            return self._reject_request
 
     def _get_user_id(self, request):
         token_id = request.environ[core_mid.CONTEXT_ENV]['token_id']
@@ -307,9 +309,45 @@ class RateLimitingMiddleware(wsgi.Middleware):
                 # TODO (rafaduran): is OK just raise a 401?
                 raise exception.Unauthorized()
 
+            # TODO (rafaduran): Need check NotFound, anything else???
             user_id = self.identity_api.get_user_by_name({}, username)['id']
         return user_id
 
     def _get_user_id_from_token_id(self, token_id):
         # TODO: Need check NotFound, anything else???
-        return self.token_api.get_token({}, token_id)['token_ref']
+        return self.token_api.get_token({}, token_id)['user_ref']
+
+    def _reject_request(self, env, start_response):
+        """Rejet the request and set a 'Retry-after' header.
+
+        :param env: wsgi request environment
+        :param start_response: wsgi response callback
+        :returns  http response
+
+        """
+        msg = '{"overLimitFault": {"details": "%s"}}' % self.msg
+        headers = [("Retry-After", "%s" % self.delay)]
+        resp = HTTPTooManyRequests(headers=headers)
+        # TODO (rafaduran): do we need xml too here?
+        resp.content_type = 'txt/json'
+        resp.body = msg
+        return resp(env, start_response)
+
+
+# Taking this from https://github.com/Pylons/webob/pull/48
+# needed until we upgrade to WebOb 1.2
+class HTTPTooManyRequests(webob.exc.HTTPClientError):
+    """
+    subclass of :class:`~HTTPClientError`
+
+    This indicates that the client has sent too many requests in a
+    given amount of time. Useful for rate limiting.
+
+    From RFC 6585, "Additional HTTP Status Codes".
+
+    code: 429, title: Too Many Requests
+    """
+    code = 429
+    title = 'Too Many Requests'
+    explanation = (
+            'The client has sent too many requests in a given amount of time.')
