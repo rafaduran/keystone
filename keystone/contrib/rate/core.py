@@ -40,7 +40,7 @@ DEFAULT_LIMITS = """(POST, *, .*, 10, MINUTE);
     (DELETE, *, .*, 10, MINUTE)"""
 
 config.register_str('driver', group='rate_limiting',
-                   default='keystone.contrib.rate.backends.kvs.Limiter')
+                    default='keystone.contrib.rate.backends.kvs.Limiter')
 config.register_str('limits', group='rate_limiting', default=DEFAULT_LIMITS)
 config.register_str('userlimits', group='rate_limiting', default='{}')
 
@@ -223,11 +223,10 @@ class RateLimitingExtension(wsgi.ExtensionRouter):
 
     def add_routes(self, mapper):
         limits_controller = LimitsController()
-        mapper.connect(
-                '/limits',
-                controller=limits_controller,
-                action='get_limits',
-                conditions=dict(method=['GET']))
+        mapper.connect('/limits',
+                       controller=limits_controller,
+                       action='get_limits',
+                       conditions=dict(method=['GET']))
 
 
 class Manager(manager.Manager):
@@ -277,6 +276,7 @@ class LimitsController(wsgi.Application):
         self.identity_api = identity.Manager()
 
     def get_limits(self, context):
+        # import ipdb;ipdb.set_trace()
         return self.limiter.get_limits(context)
 
 
@@ -297,12 +297,11 @@ class RateLimitingMiddleware(wsgi.Middleware):
             return
 
         user_id = self._get_user_id(request)
-        self.delay, self.msg = self.limiter.check_for_delay(
-                {},
-                verb=request.method,
-                url=request.path,
-                user_id=user_id)
-        if self.delay:
+        self.delay = self.limiter.check_for_delay({},
+                                                  verb=request.method,
+                                                  url=request.path,
+                                                  user_id=user_id)
+        if self.delay[0]:
             # Breaking the pipeline and returng a overLimitFault
             return self._reject_request
 
@@ -340,8 +339,8 @@ class RateLimitingMiddleware(wsgi.Middleware):
         :returns  http response
 
         """
-        msg = '{"overLimitFault": {"details": "%s"}}' % self.msg
-        headers = [("Retry-After", self.delay)]
+        msg = '{"overLimitFault": {"details": "%s"}}' % self.delay[1]
+        headers = [("Retry-After", self.delay[0])]
         resp = HTTPTooManyRequests(headers=headers)
         # TODO (rafaduran): do we need xml too here?
         resp.content_type = 'txt/json'
@@ -364,5 +363,5 @@ class HTTPTooManyRequests(webob.exc.HTTPClientError):
     """
     code = 429
     title = 'Too Many Requests'
-    explanation = (
-            'The client has sent too many requests in a given amount of time.')
+    explanation = ("The client has sent too many requests in a given amount of"
+                   " time.")

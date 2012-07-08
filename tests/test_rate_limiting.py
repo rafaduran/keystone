@@ -113,11 +113,10 @@ class LimitTest(BaseRateLimitingTest):
     def test_multiple_rules(self):
         """Test that parse_limits() handles multiple rules correctly."""
         try:
-            l = rate_core.Limit.parse_limits(
-                    '(get, *, .*, 20, minute);'
-                    '(PUT, /foo*, /foo.*, 10, hour);'
-                    '(POST, /bar*, /bar.*, 5, second);'
-                    '(Say, /derp*, /derp.*, 1, day)')
+            l = rate_core.Limit.parse_limits('(get, *, .*, 20, minute);'
+                                             '(PUT, /foo*, /foo.*, 10, hour);'
+                                             '(POST, /bar*, /bar.*, 5, second)'
+                                             ';(Say, /derp*, /derp.*, 1, day)')
         except ValueError, e:
             assert False, str(e)
 
@@ -291,9 +290,9 @@ class LimiterTestSuite(object):
         self.assertDictEqual(self.limiter.get_limits('user3'),
                              {'limits': []})
         # Default limit.
-        self.assertDictEqual(
-                self.limiter.get_limits('user1'),
-                {'limits': [limit.display() for limit in TEST_LIMITS]})
+        self.assertDictEqual(self.limiter.get_limits('user1'),
+                             {'limits':
+                                 [limit.display() for limit in TEST_LIMITS]})
 
     def test_multiple_users(self):
         """
@@ -398,29 +397,27 @@ class RateMiddlewareTests(BaseRateLimitingTest):
                           msg=None):
         req = webob.Request.blank(url)
         req.method = method
-        req.environ['openstack.context'] = {
-                    'token_id': token_id,
-                    'is_admin': is_admin
-                }
+        req.environ['openstack.context'] = {'token_id': token_id,
+                                            'is_admin': is_admin}
         if params_ctx:
             req.environ['openstack.params'] = self.params
 
         if token_id:
             self.mox.StubOutWithMock(self.middleware.token_api, 'get_token')
-            self.middleware.token_api.get_token(
-                    {}, token_id).AndReturn(
-                            ({'user': {'id': self.user_id}}))
+            self.middleware.token_api.get_token({}, token_id).\
+                AndReturn({'user': {'id': self.user_id}})
         else:
             self.mox.StubOutWithMock(self.middleware.identity_api,
                                      'get_user_by_name')
-            self.middleware.identity_api.get_user_by_name(
-                    {}, self.username).AndReturn(
-                            ({'id': self.user_id}))
+            self.middleware.identity_api.get_user_by_name({}, self.username).\
+                AndReturn({'id': self.user_id})
 
         self.mox.StubOutWithMock(self.middleware.limiter, 'check_for_delay')
-        self.middleware.limiter.check_for_delay(
-                {}, verb=method, url=url, user_id=self.user_id).AndReturn(
-                        (delay, msg))
+        self.middleware.limiter.check_for_delay({},
+                                                verb=method,
+                                                url=url,
+                                                user_id=self.user_id).\
+            AndReturn((delay, msg))
 
         self.mox.ReplayAll()
 
@@ -505,10 +502,8 @@ class RateMiddlewareTests(BaseRateLimitingTest):
         token_id = CONF.admin_token
         req = webob.Request.blank("/")
         # This should be set by other middlewares, so adding here manaually.
-        req.environ['openstack.context'] = {
-                'token_id': token_id,
-                'is_admin': True
-                }
+        req.environ['openstack.context'] = {'token_id': token_id,
+                                            'is_admin': True}
 
         self.middleware(req.environ, self._start_fake_response)
 
@@ -555,11 +550,9 @@ class LimitsrollerTest(BaseRateLimitingTest):
             ]
         }
 
-        self.context = {
-                'query_string': {},
-                'token_id': self.token_id,
-                'is_admin': False
-            }
+        self.context = {'query_string': {},
+                        'token_id': self.token_id,
+                        'is_admin': False}
 
         self.user = {
             u'id': self.user_id,
@@ -569,23 +562,18 @@ class LimitsrollerTest(BaseRateLimitingTest):
             u'tenantId': None
         }
 
-        self.token = {
-                'id': self.token_id,
-                'expires': datetime.datetime(2012, 7, 8, 17, 47, 15, 433371),
-                u'user': self.user,
-                u'tenant': {u'enabled': True,
-                    u'description': None,
-                    u'name': u'admin',
-                    u'id': u'ce3d2b75b8fe4f508dfc85cbb8786a79'
-                },
-                u'metadata': {
-                    u'roles': [
-                        u'b8ce535eba3c446d8ad78caebbb3c0aa',
-                        u'ab93ed946b514bcda97f535bc539517f',
-                        u'3cfd86b9614b42388ed688615cfadd07'
-                    ]
-                }
-            }
+        self.token = {'id': self.token_id,
+                      'expires': datetime.datetime(2012, 7, 8, 17, 47, 15),
+                      u'user': self.user,
+                      u'tenant': {u'enabled': True,
+                                  u'description': None,
+                                  u'name': u'admin',
+                                  u'id': u'ce3d2b75b8fe4f508dfc85cbb8786a79'},
+                      u'metadata': {
+                      u'roles': [
+                          u'b8ce535eba3c446d8ad78caebbb3c0aa',
+                          u'ab93ed946b514bcda97f535bc539517f',
+                          u'3cfd86b9614b42388ed688615cfadd07']}}
 
     def _stub(self, user_id=None, limits=None, context=None, token=None,
               token_id=None, token_not_found=False):
@@ -601,17 +589,17 @@ class LimitsrollerTest(BaseRateLimitingTest):
             token_id = self.token_id
 
         self.mox.StubOutWithMock(self.controller.limiter, 'get_limits')
-        self.controller.limiter.get_limits(
-                context=self.context, user_id=user_id).AndReturn(limits)
+        self.controller.limiter.get_limits(context=self.context,
+                                           user_id=user_id).AndReturn(limits)
 
         self.mox.StubOutWithMock(self.controller.token_api, 'get_token')
         if not token_not_found:
-            self.controller.token_api.get_token(
-                    context, token_id).AndReturn(token)
+            self.controller.token_api.get_token(context,
+                                                token_id).AndReturn(token)
         else:
-            self.controller.token_api.get_token(
-                    context, token_id).AndRaise(
-                            exception.NotFound(target=token_id))
+            self.controller.token_api.get_token(context,
+                                                token_id).\
+                AndRaise(exception.NotFound(target=token_id))
 
         self.mox.ReplayAll()
 
@@ -621,19 +609,20 @@ class LimitsrollerTest(BaseRateLimitingTest):
 
         self.mox.StubOutWithMock(self.controller.identity_api, 'get_user')
         if user_found:
-            self.controller.identity_api.get_user(
-                    self.context, self.user_id).AndReturn(self.user)
+            self.controller.identity_api.get_user(self.context,
+                                                  self.user_id).\
+                AndReturn(self.user)
         else:
-            self.controller.identity_api.get_user(
-                    self.context, self.user_id).AndRaise(
-                            exception.NotFound(target=user_id))
+            self.controller.identity_api.get_user(self.context,
+                                                  self.user_id).\
+                AndRaise(exception.NotFound(target=user_id))
 
         self.mox.StubOutWithMock(self.controller, 'assert_admin')
         if admin:
             self.controller.assert_admin(self.context).AndReturn(None)
         else:
-            self.controller.assert_admin(self.context).AndRaise(
-                    exception.ForbiddenAction(action='admin_required'))
+            self.controller.assert_admin(self.context).\
+                AndRaise(exception.ForbiddenAction(action='admin_required'))
 
     def test_limiter_class(self):
         """Test the right limitir class is selected."""
