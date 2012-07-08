@@ -30,6 +30,7 @@ from keystone import config
 from keystone import exception
 from keystone import identity
 import keystone.middleware.core as core_mid
+from keystone import policy
 from keystone import token
 
 
@@ -269,8 +270,11 @@ class Driver(object):
 class LimitsController(wsgi.Application):
 
     def __init__(self):
-        self.limiter = Manager()
         super(LimitsController, self).__init__()
+        self.limiter = Manager()
+        self.token_api = token.Manager()
+        self.policy_api = policy.Manager()
+        self.identity_api = identity.Manager()
 
     def get_limits(self, context):
         return self.limiter.get_limits(context)
@@ -289,7 +293,7 @@ class RateLimitingMiddleware(wsgi.Middleware):
         return response
 
     def process_request(self, request):
-        if request.environ[core_mid.CONTEXT_ENV]['is_admin']:
+        if request.environ[self.os_c]['is_admin']:
             return
 
         user_id = self._get_user_id(request)

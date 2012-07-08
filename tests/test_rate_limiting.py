@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import datetime
 import uuid
 
 import nose.exc
@@ -23,6 +24,7 @@ import webob
 from keystone import config
 from keystone.contrib.rate.backends import kvs
 import keystone.contrib.rate.core as rate_core
+from keystone import exception
 from keystone.openstack.common import importutils
 from keystone.openstack.common import jsonutils
 from keystone import test
@@ -530,6 +532,7 @@ class LimitsrollerTest(BaseRateLimitingTest):
         self.controller = rate_core.LimitsController()
         self.username = 'user'
         self.user_id = uuid.uuid4().hex
+        self.token_id = uuid.uuid4().hex
         self.limits = {
             "limits": [
                 {
@@ -552,11 +555,85 @@ class LimitsrollerTest(BaseRateLimitingTest):
             ]
         }
 
-    def _stub(self, user_id, limits):
-        self.mox.StubOutWithMock(self.middleware.limiter, 'get_limits')
-        self.middleware.limiter.check_for_delay(
-                user_id=user_id).AndReturn(limits)
+        self.context = {
+                'query_string': {},
+                'token_id': self.token_id,
+                'is_admin': False
+            }
+
+        self.user = {
+            u'id': self.user_id,
+            u'enabled': True,
+            u'email': u'admin@example.com',
+            u'name': u'admin',
+            u'tenantId': None
+        }
+
+        self.token = {
+                'id': self.token_id,
+                'expires': datetime.datetime(2012, 7, 8, 17, 47, 15, 433371),
+                u'user': self.user,
+                u'tenant': {u'enabled': True,
+                    u'description': None,
+                    u'name': u'admin',
+                    u'id': u'ce3d2b75b8fe4f508dfc85cbb8786a79'
+                },
+                u'metadata': {
+                    u'roles': [
+                        u'b8ce535eba3c446d8ad78caebbb3c0aa',
+                        u'ab93ed946b514bcda97f535bc539517f',
+                        u'3cfd86b9614b42388ed688615cfadd07'
+                    ]
+                }
+            }
+
+    def _stub(self, user_id=None, limits=None, context=None, token=None,
+              token_id=None, token_not_found=False):
+        if not user_id:
+            user_id = self.user_id
+        if not limits:
+            limits = self.limits
+        if not context:
+            context = self.context
+        if not token:
+            token = self.token
+        if not token_id:
+            token_id = self.token_id
+
+        self.mox.StubOutWithMock(self.controller.limiter, 'get_limits')
+        self.controller.limiter.get_limits(
+                context=self.context, user_id=user_id).AndReturn(limits)
+
+        self.mox.StubOutWithMock(self.controller.token_api, 'get_token')
+        if not token_not_found:
+            self.controller.token_api.get_token(
+                    context, token_id).AndReturn(token)
+        else:
+            self.controller.token_api.get_token(
+                    context, token_id).AndRaise(
+                            exception.NotFound(target=token_id))
+
         self.mox.ReplayAll()
+
+    def _stub_admin(self, admin=True, user_id=None, user_found=True):
+        if not user_id:
+            user_id = self.user_id
+
+        self.mox.StubOutWithMock(self.controller.identity_api, 'get_user')
+        if user_found:
+            self.controller.identity_api.get_user(
+                    self.context, self.user_id).AndReturn(self.user)
+        else:
+            self.controller.identity_api.get_user(
+                    self.context, self.user_id).AndRaise(
+                            exception.NotFound(target=user_id))
+
+        self.mox.StubOutWithMock(self.controller, 'assert_admin')
+        if admin:
+            self.controller.assert_admin(self.context).AndReturn(None)
+        else:
+            self.controller.assert_admin(self.context).AndRaise(
+                    exception.ForbiddenAction(action='admin_required'))
 
     def test_limiter_class(self):
         """Test the right limitir class is selected."""
@@ -566,23 +643,44 @@ class LimitsrollerTest(BaseRateLimitingTest):
 
     def test_get_limits(self):
         """Tests 'get_limits'."""
-        raise nose.exc.SkipTest('TODO')
+        self._stub()
+
+        self.assertListEqual(self.controller.get_limits(self.context),
+                             self.limits)
 
     def test_get_limits_unauthenticated(self):
         """Tests 'get_limits' unaunthenticated user."""
-        raise nose.exc.SkipTest('TODO')
+        self._stub(token_not_found=True)
+        self.assertRaises(exception.Unauthorized,
+                          self.controller.get_limits,
+                          self.context)
 
     def test_admin_get_user_limits(self):
         """Test admin can get limits for any given user."""
-        raise nose.exc.SkipTest('TODO')
+        self._stub()
+        self._stub_admin()
+
+        self.assertListEqual(self.controller.get_user_limits(
+            self.context, self.user_id), self.limits)
 
     def test_admin_get_user_not_found_limits(self):
         """Tests admin get limits for a user not found."""
-        raise nose.exc.SkipTest('TODO')
+        self._stub()
+        self._stub_admin(user_found=False)
+        self.assertRaises(exception.NotFound,
+                          self.controller.get_user_limits,
+                          self.context,
+                          self.user_id)
 
     def test_non_admin_get_user_limits(self):
         """Tests a non admin user trying to get limits for any given user."""
-        raise nose.exc.SkipTest('TODO')
+        self._stub()
+        self._stub_admin(False)
+
+        self.assertRaises(exception.ForbiddenAction,
+                          self.controller.get_user_limits,
+                          self.context,
+                          self.user_id)
 
 
 #class RestfulRateLimit(object):
